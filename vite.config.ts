@@ -1,12 +1,22 @@
 import { defineConfig } from "vite";
 import solid from "vite-plugin-solid";
+import tailwindcss from "@tailwindcss/vite";
+import type { Plugin } from "vite";
+import path from "path";
 
-// @ts-expect-error process is a nodejs global
 const host = process.env.TAURI_DEV_HOST;
+
+const tailwindPlugins = tailwindcss() as unknown as Plugin[];
 
 // https://vite.dev/config/
 export default defineConfig(async () => ({
-  plugins: [solid()],
+  plugins: [...tailwindPlugins, solid()],
+
+  resolve: {
+    alias: {
+      "~": path.resolve(__dirname, "./src")
+    },
+  },
 
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   //

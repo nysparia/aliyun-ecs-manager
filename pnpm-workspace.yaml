@@ -1,2 +1,3 @@
 onlyBuiltDependencies:
+  - '@alicloud/openapi-core'
   - esbuild

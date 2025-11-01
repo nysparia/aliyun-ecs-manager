@@ -17,15 +17,15 @@ fn greet(name: &str) -> String {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let mut commands_builder =
-        tauri_specta::Builder::<tauri::Wry>::new().commands(collect_commands![
-            greet,
-            commands::auth::current_access_key_credential
-        ]);
+    let commands_builder = tauri_specta::Builder::<tauri::Wry>::new().commands(collect_commands![
+        greet,
+        commands::auth::current_access_key_credential
+    ]);
+
     tauri::Builder::default()
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![greet])
+        .invoke_handler(commands_builder.invoke_handler())
         .setup(|app| {
             let builder = StoreBuilder::new(app, "store.json");
             let store = builder.build().expect("Store plugin build failed");

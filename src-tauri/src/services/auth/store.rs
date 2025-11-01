@@ -1,9 +1,9 @@
-use std::error::Error;
-
 use serde::Serialize;
-use serde_with::{serde_as, skip_serializing_none, DisplayFromStr};
 
-use crate::{services::auth::types::{AccessKeyCredential, BoxedError}, types::Store};
+use crate::{
+    services::auth::types::AccessKeyCredential,
+    types::{SerdeJsonError, Store},
+};
 
 pub trait AuthStore<C> {
     fn save(&self, credential: C);
@@ -15,13 +15,22 @@ pub trait AuthStore<C> {
 pub enum QueryError {
     #[error("access key credential hasn't been saved")]
     NotExist,
-    #[error("other errors happened when trying to query the access key credential")]
-    OtherError(BoxedError),
+    #[error("failed to deserialize using serde_json: {}", .0.0)]
+    DeserializeError(#[from] SerdeJsonError),
+}
+
+impl From<serde_json::Error> for QueryError {
+    fn from(value: serde_json::Error) -> Self {
+        let error: SerdeJsonError = value.into();
+        error.into()
+    }
 }
 
 pub struct AccessKeyAuthStore {
     store: Store,
 }
+
+const ACCESS_KEY_CREDENTIAL_STORE_KEY: &str = "access_key_credential";
 
 impl AccessKeyAuthStore {
     pub fn new(store: Store) -> Self {
@@ -32,6 +41,12 @@ impl AccessKeyAuthStore {
     }
 
     pub fn query(&self) -> Result<AccessKeyCredential, QueryError> {
-        todo!()
+        self.store
+            .get(ACCESS_KEY_CREDENTIAL_STORE_KEY)
+            .ok_or(QueryError::NotExist)
+            .and_then(|value| {
+                let result = serde_json::from_value::<AccessKeyCredential>(value);
+                result.map_err(QueryError::from)
+            })
     }
 }

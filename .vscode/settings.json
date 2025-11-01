@@ -9,6 +9,15 @@
         "nysparia",
         "serde",
         "solidjs",
-        "tauri"
-    ]
+        "specta",
+        "tauri",
+        "thiserror"
+    ],
+
+    "rust-analyzer.procMacro.ignored": {
+        "serde_derive": ["Serialize", "Deserialize"],
+        "specta_macros": [
+            "Type"
+        ]
+    }
 }

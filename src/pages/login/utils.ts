@@ -29,17 +29,17 @@ export function ensureAccessKeyUsable(
         return AccessKeyUsability.Waiting;
       }
 
-      const credentialConfig = new Config({
-        accessKeyId: credentials.accessKeyId,
-        accessKeySecret: credentials.accessKeySecret,
-      });
-      const stsClient = new Sts(credentialConfig);
+      // const credentialConfig = new Config({
+      //   accessKeyId: credentials.accessKeyId,
+      //   accessKeySecret: credentials.accessKeySecret,
+      // });
+      // const stsClient = new Sts(credentialConfig);
 
       let result: AccessKeyUsability = AccessKeyUsability.Unusable;
       try {
-        const resp = await stsClient.getCallerIdentity();
-        console.log(typeof resp === "string" ? resp : JSON.stringify(resp));
-        result = AccessKeyUsability.Usable;
+        // const resp = await stsClient.getCallerIdentity();
+        // console.log(typeof resp === "string" ? resp : JSON.stringify(resp));
+        // result = AccessKeyUsability.Usable;
       } catch (error) {
         console.error("Error fetching STS caller identity:");
         console.error(error);

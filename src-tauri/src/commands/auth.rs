@@ -2,7 +2,7 @@ use serde::Serialize;
 use tauri::State;
 
 use crate::services::auth::{
-    store::QueryError as ServiceQueryError, types::AccessKeyCredential, AccessKeyAuthService,
+    store::QueryCredentialError as ServiceQueryError, types::AccessKeyCredentials, AccessKeyAuthService,
 };
 
 #[derive(thiserror::Error, Debug, Serialize, specta::Type)]
@@ -35,7 +35,7 @@ pub enum QueryError {
 /// ```
 pub fn current_access_key_credential(
     auth_service: State<AccessKeyAuthService>,
-) -> Result<Option<AccessKeyCredential>, QueryError> {
+) -> Result<Option<AccessKeyCredentials>, QueryError> {
     auth_service
         .current_access_key_credential()
         .map(Some)

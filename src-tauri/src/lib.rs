@@ -7,6 +7,8 @@ use crate::services::auth::AccessKeyAuthService;
 pub mod commands;
 pub mod services;
 pub mod types;
+pub mod test_utils;
+pub mod init;
 
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 #[tauri::command]

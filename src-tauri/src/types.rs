@@ -2,10 +2,9 @@ use std::sync::Arc;
 
 use serde::Serialize;
 use serde_with::{serde_as, DisplayFromStr};
-use tauri::Wry;
 use tauri_plugin_store::Store as TauriStore;
 
-pub type Store = Arc<TauriStore<Wry>>;
+pub type Store<R> = Arc<TauriStore<R>>;
 
 #[derive(thiserror::Error, Debug, Serialize, specta::Type)]
 #[error("{description}")]

@@ -26,7 +26,7 @@ dependencies = [
 [[package]]
 name = "alibabacloud"
 version = "0.1.1"
-source = "git+https://github.com/nysparia/aliyun-sdk-rust.git?branch=nysparia-dev#65caea3c80cf5ddb510894a7d41d14e681fe36df"
+source = "git+https://github.com/nysparia/aliyun-sdk-rust.git?branch=refactor-detailed-error#f5d25f9c907d7c2419985cd71364608b5ba4706f"
 dependencies = [
  "base64 0.22.1",
  "chrono",
@@ -35,6 +35,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
+ "serde_with",
  "sha1",
  "thiserror 2.0.17",
  "tokio",
@@ -4885,9 +4886,9 @@ dependencies = [
 
 [[package]]
 name = "webpki-roots"
-version = "1.0.3"
+version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "32b130c0d2d49f8b6889abc456e795e82525204f27c42cf767cf0d7734e089b8"
+checksum = "b2878ef029c47c6e8cf779119f20fcf52bde7ad42a731b2a304bc221df17571e"
 dependencies = [
  "rustls-pki-types",
 ]

@@ -7,7 +7,7 @@ use alibabacloud::client::{
 };
 
 use crate::services::auth::{
-    error::AKFulfillError,
+    error::{AKFulfillError, AKValidationError},
     store::{AccessKeyAuthStore, AuthStore, QueryCredentialError},
     types::AccessKeyCredentials,
 };
@@ -31,33 +31,32 @@ impl AccessKeyAuthService {
 
     pub async fn validate_access_key_credentials(
         credentials: AccessKeyCredentials,
-    ) -> Result<CallerIdentityBody, AdvancedClientError> {
+    ) -> Result<CallerIdentityBody, AKValidationError> {
         let client = AliyunClient::new(credentials.access_key_id, credentials.access_key_secret);
-        let result = client.sts().get_caller_identity().await;
-        // println!("{:?}", result);
-        result
+        client
+            .sts()
+            .get_caller_identity()
+            .await
+            .map_err(|err| match err {
+                AdvancedClientError::AliyunRejectError(aliyun_rejection) => {
+                    let code = &aliyun_rejection.code;
+                    let main_code = code.split_once(".").unwrap_or((&code, "")).0;
+                    if code == main_code {
+                        AKValidationError::NotValid(aliyun_rejection)
+                    } else {
+                        AKValidationError::new_underlying(aliyun_rejection)
+                    }
+                }
+                err => AKValidationError::UnderlyingError(err),
+            })
     }
 
     pub async fn fulfill_access_key_credentials(
         &self,
         credentials: AccessKeyCredentials,
     ) -> Result<CallerIdentityBody, AKFulfillError> {
-        let validation_result = Self::validate_access_key_credentials(credentials.clone()).await;
-        let caller_identity = validation_result.map_err(|err| match err {
-            AdvancedClientError::AliyunRejectError(aliyun_rejection) => {
-                let code = &aliyun_rejection.code;
-                let main_code = code.split_once(".").unwrap_or((&code, "")).0;
-                if code == main_code {
-                    AKFulfillError::NotValid(aliyun_rejection)
-                } else {
-                    AKFulfillError::new_underlying(aliyun_rejection)
-                }
-            }
-            err => AKFulfillError::UnderlyingError(err),
-        })?;
-
+        let caller_identity = Self::validate_access_key_credentials(credentials.clone()).await?;
         self.auth_store.save(credentials)?;
-
         Ok(caller_identity)
     }
 }
@@ -111,7 +110,7 @@ mod tests {
         )
         .await;
 
-        let Err(AdvancedClientError::AliyunRejectError(err)) = result else {
+        let Err(AKValidationError::NotValid(err)) = result else {
             unreachable!()
         };
 

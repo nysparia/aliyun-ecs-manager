@@ -1,14 +1,18 @@
+use alibabacloud::client::sts::caller_identity::{CallerIdentityBody, IdentityType};
 use serde::Serialize;
 use tauri::State;
 
 use crate::services::auth::{
-    store::QueryCredentialError as ServiceQueryError, types::AccessKeyCredentials, AccessKeyAuthService,
+    error::{AKFulfillError, AKValidationError},
+    store::QueryCredentialError as ServiceQueryError,
+    types::AccessKeyCredentials,
+    AccessKeyAuthService,
 };
 
 #[derive(thiserror::Error, Debug, Serialize, specta::Type)]
 pub enum QueryError {
     #[error("internal query error")]
-    Internal(#[from] ServiceQueryError),
+    UnderlyingError(#[from] ServiceQueryError),
 }
 
 #[tauri::command]
@@ -43,4 +47,95 @@ pub fn current_access_key_credential(
             ServiceQueryError::NotExist => Ok(None),
             other => Err(other.into()),
         })
+}
+
+#[derive(specta::Type)]
+#[allow(dead_code)]
+enum IdentityTypeShadow {
+    Account,
+    RAMUser,
+    AssumedRoleUser,
+}
+
+#[derive(specta::Type)]
+#[allow(dead_code)]
+struct CallerIdentityBodyTypeShadow {
+    #[specta(type = IdentityTypeShadow)]
+    pub identity_type: IdentityType,
+    pub request_id: String,
+    pub account_id: String,
+    pub principal_id: String,
+    pub user_id: String,
+    pub arn: String,
+    pub role_id: Option<String>,
+}
+
+#[derive(Debug, Serialize, specta::Type)]
+#[serde(transparent)]
+pub struct CallerIdentity(#[specta(type = CallerIdentityBodyTypeShadow)] CallerIdentityBody);
+
+impl From<CallerIdentityBody> for CallerIdentity {
+    fn from(value: CallerIdentityBody) -> Self {
+        CallerIdentity(value)
+    }
+}
+
+#[tauri::command]
+#[specta::specta]
+/// Validate the provided access key credentials.
+///
+/// This command validates the given `AccessKeyCredentials` by making
+/// a request to Aliyun's STS service to retrieve the caller identity.
+/// It returns `Ok(CallerIdentityBody)` when the credentials are valid,
+/// and `Err(AKValidationError)` when validation fails due to invalid
+/// credentials or service errors.
+///
+/// # Errors
+///
+/// Returns `Err(AKValidationError)` when the credentials are invalid
+/// or when there are failures communicating with the Aliyun service.
+///
+/// # Examples
+///
+/// ```rust,ignore
+/// // from a Tauri frontend
+/// let identity = invoke("validate_access_key_credentials", { credentials });
+/// ```
+pub async fn validate_access_key_credentials(
+    credentials: AccessKeyCredentials,
+) -> Result<CallerIdentity, AKValidationError> {
+    AccessKeyAuthService::validate_access_key_credentials(credentials)
+        .await
+        .map(|r| r.into())
+}
+
+#[tauri::command]
+#[specta::specta]
+/// Validate and store the provided access key credentials.
+///
+/// This command validates the given `AccessKeyCredentials` and, if valid,
+/// stores them in the authentication service for future use. It returns
+/// `Ok(CallerIdentityBody)` when the credentials are successfully validated
+/// and stored, and `Err(AKFulfillError)` when validation or storage fails.
+///
+/// # Errors
+///
+/// Returns `Err(AKFulfillError)` when the credentials are invalid,
+/// when there are failures communicating with the Aliyun service,
+/// or when storing the credentials fails.
+///
+/// # Examples
+///
+/// ```rust,ignore
+/// // from a Tauri frontend
+/// let identity = invoke("fulfill_access_key_credentials", { credentials });
+/// ```
+pub async fn fulfill_access_key_credentials(
+    credentials: AccessKeyCredentials,
+    auth_service: State<'_, AccessKeyAuthService>,
+) -> Result<CallerIdentity, AKFulfillError> {
+    auth_service
+        .fulfill_access_key_credentials(credentials)
+        .await
+        .map(|r| r.into())
 }

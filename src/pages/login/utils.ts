@@ -1,12 +1,8 @@
-import { Config } from "@alicloud/credentials";
-import Sts from "@alicloud/sts20150401";
-import { Resource } from "solid-js";
+import { createEffect, createMemo, createSignal, Resource } from "solid-js";
 import { createResource } from "solid-js";
-
-export interface AccessKeyCredentials {
-  accessKeyId: string;
-  accessKeySecret: string;
-}
+import { debounce } from "@solid-primitives/scheduled";
+import { AccessKeyCredentials, commands } from "~/binding";
+export type { AccessKeyCredentials } from "~/binding";
 
 export enum AccessKeyUsability {
   Waiting,
@@ -14,32 +10,38 @@ export enum AccessKeyUsability {
   Unusable,
 }
 
-const HANGZHOU_ENDPOINT = "sts.cn-hangzhou.aliyuncs.com";
-
 export function ensureAccessKeyUsable(
   credentials: AccessKeyCredentials
 ): Resource<AccessKeyUsability> {
+  const [creds, setCreds] = createSignal(credentials as AccessKeyCredentials);
+
+  const updateCredentials = debounce(setCreds, 300);
+
+  createEffect(() => {
+    updateCredentials({
+      access_key_id: credentials.access_key_id,
+      access_key_secret: credentials.access_key_secret,
+    });
+  });
+
   const [usability] = createResource(
-    credentials,
-    async (credentials): Promise<AccessKeyUsability> => {
+    creds,
+    async (creds): Promise<AccessKeyUsability> => {
+      console.debug("Validating access key credentials:", creds);
+
       if (
-        credentials.accessKeyId.length < 10 ||
-        credentials.accessKeySecret.length < 10
+        creds.access_key_id.length < 10 ||
+        creds.access_key_secret.length < 10
       ) {
         return AccessKeyUsability.Waiting;
       }
 
-      // const credentialConfig = new Config({
-      //   accessKeyId: credentials.accessKeyId,
-      //   accessKeySecret: credentials.accessKeySecret,
-      // });
-      // const stsClient = new Sts(credentialConfig);
-
       let result: AccessKeyUsability = AccessKeyUsability.Unusable;
       try {
-        // const resp = await stsClient.getCallerIdentity();
-        // console.log(typeof resp === "string" ? resp : JSON.stringify(resp));
-        // result = AccessKeyUsability.Usable;
+        const resp = await commands.validateAccessKeyCredentials(creds);
+        if (resp.status == "ok") {
+          result = AccessKeyUsability.Usable;
+        } else throw resp;
       } catch (error) {
         console.error("Error fetching STS caller identity:");
         console.error(error);

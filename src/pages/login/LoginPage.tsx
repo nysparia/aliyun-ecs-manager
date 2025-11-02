@@ -16,22 +16,40 @@ import {
 import { Button } from "~/components/ui/button";
 import { createStore } from "solid-js/store";
 import { createInputUpdater } from "~/lib/utils/form";
-import { AccessKeyCredentials, ensureAccessKeyUsable } from "./utils";
+import {
+  AccessKeyCredentials,
+  AccessKeyUsability,
+  ensureAccessKeyUsable,
+} from "./utils";
 
 export const LoginPage: Component = () => {
   const [loginFormData, setLoginFormData] = createStore<AccessKeyCredentials>({
-    accessKeyId: "",
-    accessKeySecret: "",
+    access_key_id: "",
+    access_key_secret: "",
   });
 
   const createFormDataUpdateFn =
     (field: keyof typeof loginFormData) => (value: string) =>
+    {
       setLoginFormData(field, value);
+      // console.debug("Updated login form data:", field, value);
+      // console.debug(loginFormData);
+    }
 
   const createFormDataUpdater = (field: keyof typeof loginFormData) =>
     createInputUpdater(createFormDataUpdateFn(field));
 
   const usability = ensureAccessKeyUsable(loginFormData);
+
+  const usabilityConfigs = {
+    [AccessKeyUsability.Unusable]: { text: "凭证无效", color: "red" },
+    [AccessKeyUsability.Usable]: { text: "凭证有效", color: "green" },
+    [AccessKeyUsability.Waiting]: { text: "等待输入", color: "grey" },
+  };
+
+  const currentUsabilityConfig = () => {
+    return usabilityConfigs[usability() ?? AccessKeyUsability.Waiting];
+  };
 
   return (
     <CenterPromptLayout>
@@ -52,8 +70,8 @@ export const LoginPage: Component = () => {
                 type="text"
                 autocomplete="username"
                 required
-                value={loginFormData.accessKeyId}
-                onInput={createFormDataUpdater("accessKeyId")}
+                value={loginFormData.access_key_id}
+                onInput={createFormDataUpdater("access_key_id")}
               />
             </TextField>
             <TextField>
@@ -64,14 +82,15 @@ export const LoginPage: Component = () => {
                 type="password"
                 autocomplete="current-password"
                 required
-                value={loginFormData.accessKeySecret}
-                onInput={createFormDataUpdater("accessKeySecret")}
+                value={loginFormData.access_key_secret}
+                onInput={createFormDataUpdater("access_key_secret")}
               />
             </TextField>
           </form>
         </CardContent>
         <CardFooter class="flex justify-between">
-          <span>{usability()}</span><Button>登陆</Button>
+          <span>{currentUsabilityConfig().text}</span>
+          <Button>登陆</Button>
         </CardFooter>
       </Card>
     </CenterPromptLayout>

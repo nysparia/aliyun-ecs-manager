@@ -4,6 +4,7 @@
         "alicloud",
         "aliyun",
         "aliyuncs",
+        "creds",
         "darabonba",
         "dotenv",
         "neko",

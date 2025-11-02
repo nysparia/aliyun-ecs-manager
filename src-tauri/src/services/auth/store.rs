@@ -85,6 +85,8 @@ pub mod store_test_utils {
     use tauri_plugin_store::StoreBuilder;
     use tempfile::TempDir;
 
+    use crate::test_utils::log_plugin_builder;
+
     use super::*;
 
     pub fn init_auth_store() -> AccessKeyAuthStore<MockRuntime> {

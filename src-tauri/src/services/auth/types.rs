@@ -7,9 +7,15 @@ pub struct AccessKeyCredentials {
 }
 
 impl AccessKeyCredentials {
-    pub fn new<T1: Into<String>, T2: Into<String>>(access_key_id: T1, access_key_secret: T2) -> Self {
+    pub fn new<T1: Into<String>, T2: Into<String>>(
+        access_key_id: T1,
+        access_key_secret: T2,
+    ) -> Self {
         let access_key_id = access_key_id.into();
         let access_key_secret = access_key_secret.into();
-        Self { access_key_id, access_key_secret }
+        Self {
+            access_key_id,
+            access_key_secret,
+        }
     }
 }

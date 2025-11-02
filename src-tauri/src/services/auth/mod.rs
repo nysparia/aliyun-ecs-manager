@@ -41,7 +41,11 @@ impl AccessKeyAuthService {
                 AdvancedClientError::AliyunRejectError(aliyun_rejection) => {
                     let code = &aliyun_rejection.code;
                     let main_code = code.split_once(".").unwrap_or((&code, "")).0;
-                    if code == main_code {
+                    log::debug!("{:#?} {:#?}", main_code, code);
+                    if main_code == "InvalidAccessKeyId"
+                        || main_code == "SignatureDoesNotMatch"
+                        || main_code == "MissingAccessKeyId"
+                    {
                         AKValidationError::NotValid(aliyun_rejection)
                     } else {
                         AKValidationError::new_underlying(aliyun_rejection)
@@ -104,17 +108,49 @@ mod tests {
 
     #[tokio::test]
     async fn test_validate_access_key_credential() {
+        tracing_subscriber::fmt()
+            .with_max_level(tracing::Level::DEBUG)
+            .init();
+
         // Invalid credentials
-        let result = AccessKeyAuthService::validate_access_key_credentials(
-            AccessKeyCredentials::new("", ""),
-        )
-        .await;
+        for (creds, expected_code) in [
+            (AccessKeyCredentials::new("", ""), "MissingAccessKeyId"),
+            (
+                AccessKeyCredentials::new("invalid", "invalid"),
+                "InvalidAccessKeyId.NotFound",
+            ),
+            (
+                AccessKeyCredentials::new(
+                    "invalid",
+                    &RIGHT_ACCESS_KEY_CREDENTIALS.access_key_secret,
+                ),
+                "InvalidAccessKeyId.NotFound",
+            ),
+            (
+                AccessKeyCredentials::new(&RIGHT_ACCESS_KEY_CREDENTIALS.access_key_id, "invalid"),
+                "SignatureDoesNotMatch",
+            ),
+            (
+                AccessKeyCredentials::new(
+                    &RIGHT_ACCESS_KEY_CREDENTIALS.access_key_secret,
+                    &RIGHT_ACCESS_KEY_CREDENTIALS.access_key_id,
+                ),
+                "InvalidAccessKeyId.NotFound",
+            ),
+        ] {
+            log::info!(
+                "Testing invalid credentials: {:?}, expect: {:?}",
+                creds,
+                expected_code
+            );
+            let result = AccessKeyAuthService::validate_access_key_credentials(creds).await;
 
-        let Err(AKValidationError::NotValid(err)) = result else {
-            unreachable!()
-        };
+            let Err(AKValidationError::NotValid(err)) = result else {
+                unreachable!()
+            };
 
-        assert_eq!(err.code, "MissingAccessKeyId");
+            assert_eq!(err.code, expected_code);
+        }
 
         // Valid credentials
         let result = AccessKeyAuthService::validate_access_key_credentials(

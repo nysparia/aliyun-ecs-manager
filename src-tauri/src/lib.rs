@@ -27,12 +27,23 @@ pub fn run() {
         commands::auth::fulfill_access_key_credentials
     ]);
 
+    // tracing_subscriber::fmt()
+    //     .with_max_level(tracing::Level::DEBUG)
+    //     .init();
+
+    let log_builder = tauri_plugin_log::Builder::default()
+        .target(tauri_plugin_log::Target::new(
+            tauri_plugin_log::TargetKind::Stdout,
+        ))
+        .build();
+
     #[cfg(debug_assertions)]
     commands_builder
         .export(Typescript::default(), "../src/binding.ts")
         .expect("Failed to export typescript bindings");
 
     tauri::Builder::default()
+        .plugin(log_builder)
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(commands_builder.invoke_handler())

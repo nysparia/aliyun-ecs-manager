@@ -50,6 +50,7 @@ dependencies = [
  "claims",
  "dotenv",
  "once_cell",
+ "parking_lot",
  "pretty_assertions",
  "serde",
  "serde-error",

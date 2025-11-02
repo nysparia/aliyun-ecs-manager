@@ -37,7 +37,7 @@ pub fn current_access_key_credential(
     auth_service: State<AccessKeyAuthService>,
 ) -> Result<Option<AccessKeyCredentials>, QueryError> {
     auth_service
-        .current_access_key_credential()
+        .current_access_key_credentials()
         .map(Some)
         .or_else(|err| match err {
             ServiceQueryError::NotExist => Ok(None),

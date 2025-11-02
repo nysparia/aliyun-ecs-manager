@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize, Deserialize, specta::Type, Clone)]
+#[derive(Debug, Serialize, Deserialize, specta::Type, Clone, PartialEq)]
 pub struct AccessKeyCredentials {
     pub access_key_id: String,
     pub access_key_secret: String,

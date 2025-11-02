@@ -73,21 +73,21 @@ impl<R: tauri::Runtime> AuthStore<AccessKeyCredentials> for AccessKeyAuthStore<R
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use std::fmt::Debug;
+impl<R: tauri::Runtime> From<Store<R>> for AccessKeyAuthStore<R> {
+    fn from(value: Store<R>) -> Self {
+        Self::new(value)
+    }
+}
 
-    use claims::assert_matches;
-    use tauri::test::mock_builder;
+#[cfg(test)]
+pub mod store_test_utils {
+    use tauri::test::{mock_builder, MockRuntime};
     use tauri_plugin_store::StoreBuilder;
     use tempfile::TempDir;
 
-    use crate::services::auth::types::AccessKeyCredentials;
-
     use super::*;
 
-    #[test]
-    fn test_access_key_auth_store() {
+    pub fn init_auth_store() -> AccessKeyAuthStore<MockRuntime> {
         let temp_dir = TempDir::new().unwrap();
         let store_path = temp_dir.path().join("test_auth_store.json");
 
@@ -98,8 +98,22 @@ mod tests {
             .unwrap();
 
         let store = StoreBuilder::new(&app, store_path).build().unwrap();
+        AccessKeyAuthStore::new(store)
+    }
+}
 
-        let auth_store = AccessKeyAuthStore::new(store);
+#[cfg(test)]
+mod tests {
+    use claims::assert_matches;
+    use std::fmt::Debug;
+
+    use crate::services::auth::types::AccessKeyCredentials;
+
+    use super::*;
+
+    #[test]
+    fn test_access_key_auth_store() {
+        let auth_store = store_test_utils::init_auth_store();
 
         let result = auth_store.query();
         assert_not_exist(result);

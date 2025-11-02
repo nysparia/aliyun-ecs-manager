@@ -1,3 +1,4 @@
+pub mod error;
 pub mod store;
 pub mod types;
 
@@ -5,12 +6,10 @@ use alibabacloud::client::{
     error::AdvancedClientError, sts::caller_identity::CallerIdentityBody, AliyunClient,
 };
 
-use crate::{
-    services::auth::{
-        store::{AccessKeyAuthStore, AuthStore, QueryCredentialError},
-        types::AccessKeyCredentials,
-    },
-    types::Store,
+use crate::services::auth::{
+    error::AKFulfillError,
+    store::{AccessKeyAuthStore, AuthStore, QueryCredentialError},
+    types::AccessKeyCredentials,
 };
 
 pub struct AccessKeyAuthService {
@@ -18,25 +17,48 @@ pub struct AccessKeyAuthService {
 }
 
 impl AccessKeyAuthService {
-    pub fn new<R: tauri::Runtime + 'static>(store: Store<R>) -> Self {
+    pub fn new<R: tauri::Runtime + 'static, S: Into<AccessKeyAuthStore<R>>>(store: S) -> Self {
         Self {
-            auth_store: Box::new(AccessKeyAuthStore::<R>::new(store)),
+            auth_store: Box::new(store.into()),
         }
     }
 
-    pub fn current_access_key_credential(
+    pub fn current_access_key_credentials(
         &self,
     ) -> Result<AccessKeyCredentials, QueryCredentialError> {
         self.auth_store.query()
     }
 
-    pub async fn validate_access_key_credential(
-        credential: AccessKeyCredentials,
+    pub async fn validate_access_key_credentials(
+        credentials: AccessKeyCredentials,
     ) -> Result<CallerIdentityBody, AdvancedClientError> {
-        let client = AliyunClient::new(credential.access_key_id, credential.access_key_secret);
+        let client = AliyunClient::new(credentials.access_key_id, credentials.access_key_secret);
         let result = client.sts().get_caller_identity().await;
         // println!("{:?}", result);
         result
+    }
+
+    pub async fn fulfill_access_key_credentials(
+        &self,
+        credentials: AccessKeyCredentials,
+    ) -> Result<CallerIdentityBody, AKFulfillError> {
+        let validation_result = Self::validate_access_key_credentials(credentials.clone()).await;
+        let caller_identity = validation_result.map_err(|err| match err {
+            AdvancedClientError::AliyunRejectError(aliyun_rejection) => {
+                let code = &aliyun_rejection.code;
+                let main_code = code.split_once(".").unwrap_or((&code, "")).0;
+                if code == main_code {
+                    AKFulfillError::NotValid(aliyun_rejection)
+                } else {
+                    AKFulfillError::new_underlying(aliyun_rejection)
+                }
+            }
+            err => AKFulfillError::UnderlyingError(err),
+        })?;
+
+        self.auth_store.save(credentials)?;
+
+        Ok(caller_identity)
     }
 }
 
@@ -44,7 +66,11 @@ impl AccessKeyAuthService {
 mod tests {
     use std::env;
 
+    use claims::assert_matches;
     use once_cell::sync::Lazy;
+    use pretty_assertions::assert_eq;
+
+    use crate::services::auth::store::store_test_utils;
 
     use super::*;
 
@@ -80,9 +106,10 @@ mod tests {
     #[tokio::test]
     async fn test_validate_access_key_credential() {
         // Invalid credentials
-        let result =
-            AccessKeyAuthService::validate_access_key_credential(AccessKeyCredentials::new("", ""))
-                .await;
+        let result = AccessKeyAuthService::validate_access_key_credentials(
+            AccessKeyCredentials::new("", ""),
+        )
+        .await;
 
         let Err(AdvancedClientError::AliyunRejectError(err)) = result else {
             unreachable!()
@@ -91,7 +118,7 @@ mod tests {
         assert_eq!(err.code, "MissingAccessKeyId");
 
         // Valid credentials
-        let result = AccessKeyAuthService::validate_access_key_credential(
+        let result = AccessKeyAuthService::validate_access_key_credentials(
             RIGHT_ACCESS_KEY_CREDENTIALS.clone(),
         )
         .await;
@@ -99,5 +126,24 @@ mod tests {
         let Ok(body) = result else { unreachable!() };
 
         println!("{:?}", body);
+    }
+
+    #[tokio::test]
+    async fn test_fulfill_access_key_credentials() {
+        let auth_store = store_test_utils::init_auth_store();
+        let auth_service = AccessKeyAuthService::new(auth_store);
+
+        let current_credentials = auth_service.current_access_key_credentials().unwrap_err();
+        assert_matches!(current_credentials, QueryCredentialError::NotExist);
+
+        let caller_identity = auth_service
+            .fulfill_access_key_credentials(RIGHT_ACCESS_KEY_CREDENTIALS.clone())
+            .await
+            .unwrap();
+
+        println!("{:?}", caller_identity);
+
+        let current_credentials = auth_service.current_access_key_credentials().unwrap();
+        assert_eq!(current_credentials, RIGHT_ACCESS_KEY_CREDENTIALS.clone());
     }
 }

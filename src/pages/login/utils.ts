@@ -1,4 +1,4 @@
-import { createEffect, createMemo, createSignal, Resource } from "solid-js";
+import { createEffect, createSignal, Resource } from "solid-js";
 import { createResource } from "solid-js";
 import { debounce } from "@solid-primitives/scheduled";
 import { AccessKeyCredentials, commands } from "~/binding";
@@ -10,9 +10,13 @@ export enum AccessKeyUsability {
   Unusable,
 }
 
-export function ensureAccessKeyUsable(
-  credentials: AccessKeyCredentials
-): Resource<AccessKeyUsability> {
+export function ensureAccessKeyUsable(credentials: AccessKeyCredentials): {
+  usability: Resource<AccessKeyUsability>;
+  refetch: () => Promise<AccessKeyUsability>;
+  fulfillCredentials: () => Promise<
+    AccessKeyUsability.Usable | AccessKeyUsability.Unusable
+  >;
+} {
   const [creds, setCreds] = createSignal(credentials as AccessKeyCredentials);
 
   const updateCredentials = debounce(setCreds, 300);
@@ -24,7 +28,7 @@ export function ensureAccessKeyUsable(
     });
   });
 
-  const [usability] = createResource(
+  const [usability, { refetch, mutate }] = createResource(
     creds,
     async (creds): Promise<AccessKeyUsability> => {
       console.debug("Validating access key credentials:", creds);
@@ -36,12 +40,16 @@ export function ensureAccessKeyUsable(
         return AccessKeyUsability.Waiting;
       }
 
-      let result: AccessKeyUsability = AccessKeyUsability.Unusable;
+      let result: AccessKeyUsability;
       try {
         const resp = await commands.validateAccessKeyCredentials(creds);
         if (resp.status == "ok") {
           result = AccessKeyUsability.Usable;
-        } else throw resp;
+        } else if (resp.status == "error" && "NotValid" in resp.error) {
+          result = AccessKeyUsability.Unusable;
+        } else {
+          throw resp.error;
+        }
       } catch (error) {
         console.error("Error fetching STS caller identity:");
         console.error(error);
@@ -51,5 +59,26 @@ export function ensureAccessKeyUsable(
     }
   );
 
-  return usability;
+  return {
+    usability,
+    refetch: async () => {
+      return (await refetch()) as AccessKeyUsability;
+    },
+    fulfillCredentials: async () => {
+      const creds: AccessKeyCredentials = {
+        access_key_id: credentials.access_key_id,
+        access_key_secret: credentials.access_key_secret,
+      };
+      const r = await commands.fulfillAccessKeyCredentials(creds);
+      if (r.status === "ok") {
+        return mutate(AccessKeyUsability.Usable);
+      } else {
+        if ("NotValid" in r.error) {
+          return mutate(AccessKeyUsability.Unusable);
+        } else {
+          throw r.error;
+        }
+      }
+    },
+  };
 }

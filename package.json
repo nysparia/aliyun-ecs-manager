@@ -17,6 +17,7 @@
     "@alicloud/sts20150401": "^1.1.6",
     "@darabonba/typescript": "^1.0.3",
     "@kobalte/core": "^0.13.11",
+    "@midudev/tailwind-animations": "^0.2.0",
     "@solid-primitives/scheduled": "^1.5.2",
     "@solidjs/router": "^0.15.3",
     "@tauri-apps/api": "^2",

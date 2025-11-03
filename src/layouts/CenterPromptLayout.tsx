@@ -1,8 +1,20 @@
 import { Component } from "solid-js";
-import { ChildrenProps } from "~/types";
+import { cn } from "~/lib/utils";
+import { ChildrenProps, ClassProps } from "~/types";
 
-export const CenterPromptLayout: Component<ChildrenProps> = (props) => {
-  return <main class="flex flex-col h-full items-center justify-center">{props.children}</main>;
+export const CenterPromptLayout: Component<ChildrenProps & ClassProps> = (
+  props
+) => {
+  return (
+    <main
+      class={cn(
+        "flex flex-col h-full items-center justify-center",
+        props.class
+      )}
+    >
+      {props.children}
+    </main>
+  );
 };
 
 export type CenterPromptBoxProps = {

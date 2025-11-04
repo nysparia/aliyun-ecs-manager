@@ -159,6 +159,12 @@ pub async fn fulfill_access_key_credentials(
 
 #[tauri::command]
 #[specta::specta]
+pub async fn has_aliyun_client(client_service: State<'_, AliyunClientService>) -> Result<bool, ()> {
+    Ok(client_service.is_initialized())
+}
+
+#[tauri::command]
+#[specta::specta]
 /// Check if there is a valid Aliyun client available.
 ///
 /// This command queries the client service to determine whether a valid

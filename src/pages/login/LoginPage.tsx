@@ -29,6 +29,8 @@ import {
 } from "./utils";
 import { cn } from "~/lib/utils";
 import { ChildrenProps, ClassProps } from "~/types";
+import { useAliyunClientStatus } from "~/lib/auth";
+import { useNavigate } from "@solidjs/router";
 
 export const LoginPage: Component = () => {
   const [loginFormData, setLoginFormData] = createStore<AccessKeyCredentials>({
@@ -65,6 +67,14 @@ export const LoginPage: Component = () => {
 
   const [hintShakeTrigger, setHintShakeTrigger] = createSignal(0);
   const [submitDisabled, setSubmitDisabled] = createSignal(false);
+  const { hasValidClient, revalidate } = useAliyunClientStatus();
+  const navigate = useNavigate();
+
+  createEffect(async () => {
+    if (!hasValidClient.loading && hasValidClient()) {
+      navigate(-1);
+    }
+  });
 
   const onSubmit = async () => {
     setSubmitDisabled(true);
@@ -75,9 +85,8 @@ export const LoginPage: Component = () => {
         // console.debug("Login attempt with unusable credentials.", usability);
         setHintShakeTrigger(hintShakeTrigger() + 1);
       } else {
-        
+        await revalidate();
       }
-      // setErrorText(`内部错误`);
     } catch (err) {
       setErrorText(`内部错误：${err}`);
     } finally {

@@ -95,6 +95,43 @@ async fulfillAccessKeyCredentials(credentials: AccessKeyCredentials) : Promise<R
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
+},
+async hasAliyunClient() : Promise<Result<boolean, null>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("has_aliyun_client") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Check if there is a valid Aliyun client available.
+ * 
+ * This command queries the client service to determine whether a valid
+ * Aliyun client instance exists and is properly configured. It returns
+ * `Ok(true)` when a valid client is available, `Ok(false)` when no client
+ * is configured or the client is invalid, and `Err(ClientValidationError)`
+ * for validation failures or service errors.
+ * 
+ * # Errors
+ * 
+ * Returns `Err(ClientValidationError)` when there are failures during
+ * the validation process or when communicating with the client service.
+ * 
+ * # Examples
+ * 
+ * ```rust,ignore
+ * // from a Tauri frontend
+ * let is_valid = invoke("has_valid_aliyun_client");
+ * ```
+ */
+async hasValidAliyunClient() : Promise<Result<boolean, AliyunRequestCommandError<NoOther>>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("has_valid_aliyun_client") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 
@@ -115,6 +152,7 @@ export type AliyunRequestCommandError<E> = { type: "Specific"; error: E } | { ty
 export type CallerIdentity = CallerIdentityBodyTypeShadow
 export type CallerIdentityBodyTypeShadow = { identity_type: IdentityTypeShadow; request_id: string; account_id: string; principal_id: string; user_id: string; arn: string; role_id: string | null }
 export type IdentityTypeShadow = "Account" | "RAMUser" | "AssumedRoleUser"
+export type NoOther = null
 export type QueryCredentialError = { type: "NotExist" } | { type: "DeserializeError"; error: SerdeJsonError }
 export type QueryError = { type: "UnderlyingError"; error: QueryCredentialError }
 export type SerdeJsonError = string

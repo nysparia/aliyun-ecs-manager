@@ -14,6 +14,8 @@ pub fn commands_builder() -> tauri_specta::Builder {
         greet,
         auth::current_access_key_credential,
         auth::validate_access_key_credentials,
-        auth::fulfill_access_key_credentials
+        auth::fulfill_access_key_credentials,
+        auth::has_aliyun_client,
+        auth::has_valid_aliyun_client
     ])
 }

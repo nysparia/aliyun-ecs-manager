@@ -82,15 +82,22 @@ impl<R: tauri::Runtime> From<Store<R>> for AccessKeyAuthStore<R> {
 
 #[cfg(test)]
 pub mod store_test_utils {
+    use std::path::PathBuf;
+
     use tauri::test::{mock_builder, MockRuntime};
     use tauri_plugin_store::StoreBuilder;
     use tempfile::TempDir;
 
     use super::*;
 
-    pub fn init_auth_store() -> AccessKeyAuthStore<MockRuntime> {
+    pub fn auth_store_path() -> PathBuf {
         let temp_dir = TempDir::new().unwrap();
         let store_path = temp_dir.path().join("test_auth_store.json");
+        store_path
+    }
+
+    pub fn init_auth_store() -> AccessKeyAuthStore<MockRuntime> {
+        let store_path = auth_store_path();
 
         let app = mock_builder()
             .invoke_handler(tauri::generate_handler![])

@@ -41,9 +41,9 @@ pub fn run() {
             commands_builder.mount_events(app);
             let builder = StoreBuilder::new(app, "store.json");
             let store = builder.build().expect("Store plugin build failed");
-            let auth_service = AccessKeyAuthService::new(store);
-
             let client_service = AliyunClientService::new();
+            let auth_service = AccessKeyAuthService::new(store);
+            
             if let Some(client) = auth_service.new_client() {
                 log::info!("Successfully initialized Aliyun client from saved credentials");
                 client_service.initialize(client);

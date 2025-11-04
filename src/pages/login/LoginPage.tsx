@@ -74,6 +74,8 @@ export const LoginPage: Component = () => {
       if (usability != AccessKeyUsability.Usable) {
         // console.debug("Login attempt with unusable credentials.", usability);
         setHintShakeTrigger(hintShakeTrigger() + 1);
+      } else {
+        
       }
       // setErrorText(`内部错误`);
     } catch (err) {

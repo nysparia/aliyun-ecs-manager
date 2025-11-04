@@ -30,6 +30,20 @@ pub enum AliyunRequestCommandError<E: SpecificError> {
     },
 }
 
+#[derive(Debug, Error, Serialize, specta::Type)]
+#[error("this is unreachable since it's used to indicate there's no other error kind")]
+pub struct NoOther;
+
+#[derive(Error, Debug)]
+#[error("This error has no source.")]
+pub struct NoSource;
+
+impl NoSource {
+    pub fn new_boxed() -> Box<Self> {
+        Box::new(Self)
+    }
+}
+
 impl<E: SpecificError> AliyunRequestCommandError<E> {
     pub fn new_specific(error: E) -> Self {
         Self::Specific(error)
@@ -65,6 +79,30 @@ impl<E: SpecificError> From<OperationError> for AliyunRequestCommandError<E> {
             OperationError::InternalError { message, source } => {
                 Self::InternalError { message, source }
             }
+        }
+    }
+}
+
+impl AliyunRequestCommandError<NoOther> {
+    pub fn from_others<E: SpecificError>(value: AliyunRequestCommandError<E>) -> Self {
+        use AliyunRequestCommandError::*;
+
+        type NoOtherError = AliyunRequestCommandError<NoOther>;
+
+        match value {
+            Specific(_) => {
+                unreachable!("You should handle the specific error before using this method")
+            }
+            RequestFailure {
+                message,
+                kind,
+                source,
+            } => NoOtherError::RequestFailure {
+                message,
+                kind,
+                source,
+            },
+            InternalError { message, source } => NoOtherError::InternalError { message, source },
         }
     }
 }

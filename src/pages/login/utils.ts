@@ -45,7 +45,11 @@ export function ensureAccessKeyUsable(credentials: AccessKeyCredentials): {
         const resp = await commands.validateAccessKeyCredentials(creds);
         if (resp.status == "ok") {
           result = AccessKeyUsability.Usable;
-        } else if (resp.status == "error" && "NotValid" in resp.error) {
+        } else if (
+          resp.status == "error" &&
+          resp.error.type == "Specific" &&
+          resp.error.error.type === "AKNotValid"
+        ) {
           result = AccessKeyUsability.Unusable;
         } else {
           throw resp.error;
@@ -73,7 +77,8 @@ export function ensureAccessKeyUsable(credentials: AccessKeyCredentials): {
       if (r.status === "ok") {
         return mutate(AccessKeyUsability.Usable);
       } else {
-        if ("NotValid" in r.error) {
+        const error = r.error;
+        if (error.type == "Specific" && error.error.type === "AKNotValid") {
           return mutate(AccessKeyUsability.Unusable);
         } else {
           throw r.error;

@@ -1,6 +1,11 @@
 use alibabacloud::client::AliyunClient;
 use std::sync::RwLock;
 
+use crate::services::{
+    auth::AccessKeyAuthService,
+    error::{AliyunRequestCommandError, NoOther},
+};
+
 /// Service for managing Aliyun client instances.
 ///
 /// This service uses `RwLock` to ensure thread-safety while allowing multiple concurrent readers.
@@ -51,6 +56,11 @@ impl AliyunClientService {
         guard.as_ref().map(f)
     }
 
+    pub fn clone_client(&self) -> Option<AliyunClient> {
+        let guard = self.client.read().unwrap();
+        guard.as_ref().cloned()
+    }
+
     /// Checks whether the client has been initialized.
     ///
     /// # Returns
@@ -61,6 +71,22 @@ impl AliyunClientService {
         self.client.read().unwrap().is_some()
     }
 
+    pub async fn is_valid(&self) -> Result<bool, ClientValidationError> {
+        use super::error::AliyunRequestCommandError::*;
+
+        let Some(client) = self.clone_client() else {
+            return Ok(false);
+        };
+
+        let result = AccessKeyAuthService::validate_access_key_credentials(client).await;
+        match result {
+            Ok(_) => Ok(true),
+            Err(err) => match err {
+                Specific(_) => Ok(false),
+                err => Err(AliyunRequestCommandError::<NoOther>::from_others(err)),
+            },
+        }
+    }
     /// Clears the client instance.
     ///
     /// This method should be called when logging out or when credentials need to be invalidated.
@@ -69,3 +95,5 @@ impl AliyunClientService {
         *guard = None;
     }
 }
+
+pub type ClientValidationError = AliyunRequestCommandError<NoOther>;

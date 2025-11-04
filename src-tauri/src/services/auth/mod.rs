@@ -42,12 +42,12 @@ impl AccessKeyAuthService {
     ) -> Result<AccessKeyCredentials, QueryCredentialError> {
         self.auth_store.query()
     }
-    pub async fn validate_access_key_credentials(
-        credentials: AccessKeyCredentials,
+    pub async fn validate_access_key_credentials<C: Into<AliyunClient>>(
+        credentials_or_client: C,
     ) -> Result<CallerIdentityBody, AliyunRequestCommandError<AKNotValid>> {
         use OperationError::*;
 
-        let client = AliyunClient::new(credentials.access_key_id, credentials.access_key_secret);
+        let client = credentials_or_client.into();
         client
             .sts()
             .get_caller_identity()
@@ -67,7 +67,9 @@ impl AccessKeyAuthService {
                             || main_code == "MissingAccessKeyId"
                     } =>
                 {
-                    AliyunRequestCommandError::<AKNotValid>::new_specific(AKNotValid::new(aliyun_rejection))
+                    AliyunRequestCommandError::<AKNotValid>::new_specific(AKNotValid::new(
+                        aliyun_rejection,
+                    ))
                 }
                 other => other.into(),
             })
@@ -87,7 +89,7 @@ impl AccessKeyAuthService {
 mod tests {
     use std::env;
 
-    use claims::assert_matches;
+    use claims::{assert_matches, assert_ok};
     use once_cell::sync::Lazy;
     use pretty_assertions::assert_eq;
 
@@ -198,5 +200,24 @@ mod tests {
 
         let current_credentials = auth_service.current_access_key_credentials().unwrap();
         assert_eq!(current_credentials, RIGHT_ACCESS_KEY_CREDENTIALS.clone());
+
+        // After fulfilling the credentials,
+        // the access key auth service is able to make valid client.
+        let Some(client) = auth_service.new_client() else {
+            unreachable!()
+        };
+
+        assert_eq!(
+            client.access_key_id,
+            RIGHT_ACCESS_KEY_CREDENTIALS.access_key_id
+        );
+
+        assert_eq!(
+            client.access_key_secret,
+            RIGHT_ACCESS_KEY_CREDENTIALS.access_key_secret
+        );
+
+        let result = AccessKeyAuthService::validate_access_key_credentials(client).await;
+        assert_ok!(result);
     }
 }

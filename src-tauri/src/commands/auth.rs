@@ -2,11 +2,15 @@ use alibabacloud::client::sts::caller_identity::{CallerIdentityBody, IdentityTyp
 use serde::Serialize;
 use tauri::State;
 
-use crate::services::auth::{
-    error::{AKFulfillError, AKValidationError},
-    store::QueryCredentialError as ServiceQueryError,
-    types::AccessKeyCredentials,
-    AccessKeyAuthService,
+use crate::services::{
+    auth::{
+        error::{AKFulfillError, AKValidationError},
+        store::QueryCredentialError as ServiceQueryError,
+        types::AccessKeyCredentials,
+        AccessKeyAuthService,
+    },
+    client::{AliyunClientService, ClientValidationError},
+    error::NoSource,
 };
 
 #[derive(thiserror::Error, Debug, Serialize, specta::Type)]
@@ -134,9 +138,48 @@ pub async fn validate_access_key_credentials(
 pub async fn fulfill_access_key_credentials(
     credentials: AccessKeyCredentials,
     auth_service: State<'_, AccessKeyAuthService>,
+    client_service: State<'_, AliyunClientService>,
 ) -> Result<CallerIdentity, AKFulfillError> {
-    auth_service
+    let result = auth_service
         .fulfill_access_key_credentials(credentials)
         .await
-        .map(|r| r.into())
+        .map(|r| r.into())?;
+
+    let Some(client) = auth_service.new_client() else {
+        return Err(AKFulfillError::InternalError {
+            message: "can't unwrap valid aliyun client when using auth_service.new_client"
+                .to_owned(),
+            source: NoSource::new_boxed(),
+        });
+    };
+    client_service.initialize(client);
+
+    Ok(result)
+}
+
+#[tauri::command]
+#[specta::specta]
+/// Check if there is a valid Aliyun client available.
+///
+/// This command queries the client service to determine whether a valid
+/// Aliyun client instance exists and is properly configured. It returns
+/// `Ok(true)` when a valid client is available, `Ok(false)` when no client
+/// is configured or the client is invalid, and `Err(ClientValidationError)`
+/// for validation failures or service errors.
+///
+/// # Errors
+///
+/// Returns `Err(ClientValidationError)` when there are failures during
+/// the validation process or when communicating with the client service.
+///
+/// # Examples
+///
+/// ```rust,ignore
+/// // from a Tauri frontend
+/// let is_valid = invoke("has_valid_aliyun_client");
+/// ```
+pub async fn has_valid_aliyun_client(
+    client_service: State<'_, AliyunClientService>,
+) -> Result<bool, ClientValidationError> {
+    client_service.is_valid().await
 }

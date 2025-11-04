@@ -8,14 +8,6 @@ use crate::services::{
     error::{AliyunRejectionTypeShadow, AliyunRequestCommandError},
 };
 
-#[derive(specta::Type)]
-#[allow(dead_code)]
-enum AdvanceClientErrorTypeShadow {
-    AliyunRejectError(AliyunRejectionTypeShadow),
-    UnderlyingError(String),
-    ResultDeserializationError(String),
-}
-
 #[derive(Debug, Error, Serialize, specta::Type)]
 #[error("the access key credentials provided is not valid: {}", .data.code)]
 pub struct AKNotValid {

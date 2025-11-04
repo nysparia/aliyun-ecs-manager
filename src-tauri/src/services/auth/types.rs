@@ -1,3 +1,4 @@
+use alibabacloud::client::AliyunClient;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, specta::Type, Clone, PartialEq)]
@@ -17,5 +18,11 @@ impl AccessKeyCredentials {
             access_key_id,
             access_key_secret,
         }
+    }
+}
+
+impl From<AccessKeyCredentials> for AliyunClient {
+    fn from(credentials: AccessKeyCredentials) -> Self {
+        AliyunClient::new(credentials.access_key_id, credentials.access_key_secret)
     }
 }

@@ -37,7 +37,7 @@ dependencies = [
 [[package]]
 name = "alibabacloud"
 version = "0.1.1"
-source = "git+https://github.com/nysparia/aliyun-sdk-rust.git?branch=refactor-detailed-error#bd3aad0913028b6933f903a8bb254e3c49d58529"
+source = "git+https://github.com/nysparia/aliyun-sdk-rust.git?branch=refactor-detailed-error#8a68a6348914b14b4d3d05f32b1cbbef72ecd40e"
 dependencies = [
  "base64 0.22.1",
  "chrono",

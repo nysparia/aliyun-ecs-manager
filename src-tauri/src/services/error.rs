@@ -8,6 +8,7 @@ pub trait SpecificError: StdError + Serialize + specta::Type {}
 impl<E: StdError + Serialize + specta::Type> SpecificError for E {}
 
 #[derive(Error, Debug, Serialize, specta::Type)]
+#[serde(tag = "type", content = "error")]
 pub enum AliyunRequestCommandError<E: SpecificError> {
     #[error("{}", .0)]
     Specific(#[source] E),

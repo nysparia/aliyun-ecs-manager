@@ -12,6 +12,7 @@ pub trait AuthStore<C> {
 }
 
 #[derive(Debug, thiserror::Error, Serialize, specta::Type)]
+#[serde(tag = "type", content = "error")]
 pub enum QueryCredentialError {
     #[error("access key credential hasn't been saved")]
     NotExist,

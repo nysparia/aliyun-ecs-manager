@@ -26,14 +26,22 @@ impl AccessKeyAuthService {
         }
     }
 
+    pub fn new_client(&self) -> Option<AliyunClient> {
+        let Ok(credentials) = self.current_access_key_credentials() else {
+            return None;
+        };
+
+        Some(AliyunClient::new(
+            credentials.access_key_id,
+            credentials.access_key_secret,
+        ))
+    }
+
     pub fn current_access_key_credentials(
         &self,
     ) -> Result<AccessKeyCredentials, QueryCredentialError> {
         self.auth_store.query()
     }
-
-    pub async fn get_credentials_status(&self) {}
-
     pub async fn validate_access_key_credentials(
         credentials: AccessKeyCredentials,
     ) -> Result<CallerIdentityBody, AliyunRequestCommandError<AKNotValid>> {
@@ -45,21 +53,22 @@ impl AccessKeyAuthService {
             .get_caller_identity()
             .await
             .map_err(|err| match err {
-                Rejected(aliyun_rejection) if {
-                    let code = &aliyun_rejection.code;
-                    let main_code = code.split_once(".").unwrap_or((code, "")).0;
-                    log::debug!(
-                        "Received aliyun error code: {:#?}, read: {:#?}",
-                        code,
-                        main_code
-                    );
-                    main_code == "InvalidAccessKeyId"
-                        || main_code == "SignatureDoesNotMatch"
-                        || main_code == "MissingAccessKeyId"
-                } => AliyunRequestCommandError::<AKNotValid>::new_specific(AKNotValid(
-                    aliyun_rejection,
-                )),
-                Rejected(aliyun_rejection) => OperationError::Rejected(aliyun_rejection).into(),
+                Rejected(aliyun_rejection)
+                    if {
+                        let code = &aliyun_rejection.code;
+                        let main_code = code.split_once(".").unwrap_or((code, "")).0;
+                        log::debug!(
+                            "Received aliyun error code: {:#?}, read: {:#?}",
+                            code,
+                            main_code
+                        );
+                        main_code == "InvalidAccessKeyId"
+                            || main_code == "SignatureDoesNotMatch"
+                            || main_code == "MissingAccessKeyId"
+                    } =>
+                {
+                    AliyunRequestCommandError::<AKNotValid>::new_specific(AKNotValid::new(aliyun_rejection))
+                }
                 other => other.into(),
             })
     }
@@ -158,7 +167,7 @@ mod tests {
                 unreachable!()
             };
 
-            assert_eq!(err.0.code, expected_code);
+            assert_eq!(err.data.code, expected_code);
         }
 
         // Valid credentials

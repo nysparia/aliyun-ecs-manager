@@ -59,7 +59,7 @@ async currentAccessKeyCredential() : Promise<Result<AccessKeyCredentials | null,
  * let identity = invoke("validate_access_key_credentials", { credentials });
  * ```
  */
-async validateAccessKeyCredentials(credentials: AccessKeyCredentials) : Promise<Result<CallerIdentity, AKValidationError>> {
+async validateAccessKeyCredentials(credentials: AccessKeyCredentials) : Promise<Result<CallerIdentity, AliyunRequestCommandError<AKNotValid>>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("validate_access_key_credentials", { credentials }) };
 } catch (e) {
@@ -88,7 +88,7 @@ async validateAccessKeyCredentials(credentials: AccessKeyCredentials) : Promise<
  * let identity = invoke("fulfill_access_key_credentials", { credentials });
  * ```
  */
-async fulfillAccessKeyCredentials(credentials: AccessKeyCredentials) : Promise<Result<CallerIdentity, AKFulfillError>> {
+async fulfillAccessKeyCredentials(credentials: AccessKeyCredentials) : Promise<Result<CallerIdentity, AliyunRequestCommandError<AKNotValid>>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("fulfill_access_key_credentials", { credentials }) };
 } catch (e) {
@@ -108,17 +108,15 @@ async fulfillAccessKeyCredentials(credentials: AccessKeyCredentials) : Promise<R
 
 /** user-defined types **/
 
-export type AKFulfillError = { NotValid: AliyunRejectionTypeShadow } | { SaveCredentialError: SaveCredentialError } | { UnderlyingError: AdvanceClientErrorTypeShadow }
-export type AKValidationError = { NotValid: AliyunRejectionTypeShadow } | { UnderlyingError: AdvanceClientErrorTypeShadow }
+export type AKNotValid = { type: "AKNotValid"; data: AliyunRejectionTypeShadow }
 export type AccessKeyCredentials = { access_key_id: string; access_key_secret: string }
-export type AdvanceClientErrorTypeShadow = { AliyunRejectError: AliyunRejectionTypeShadow } | { UnderlyingError: string } | { ResultDeserializationError: string }
 export type AliyunRejectionTypeShadow = { code: string; host_id: string; message: string; request_id: string; recommend: string }
+export type AliyunRequestCommandError<E> = { type: "Specific"; error: E } | { type: "RequestFailure"; error: { message: string } } | { type: "InternalError"; error: { message: string } }
 export type CallerIdentity = CallerIdentityBodyTypeShadow
 export type CallerIdentityBodyTypeShadow = { identity_type: IdentityTypeShadow; request_id: string; account_id: string; principal_id: string; user_id: string; arn: string; role_id: string | null }
 export type IdentityTypeShadow = "Account" | "RAMUser" | "AssumedRoleUser"
-export type QueryCredentialError = "NotExist" | { DeserializeError: SerdeJsonError }
-export type QueryError = { UnderlyingError: QueryCredentialError }
-export type SaveCredentialError = { SerializeError: SerdeJsonError }
+export type QueryCredentialError = { type: "NotExist" } | { type: "DeserializeError"; error: SerdeJsonError }
+export type QueryError = { type: "UnderlyingError"; error: QueryCredentialError }
 export type SerdeJsonError = string
 
 /** tauri-specta globals **/

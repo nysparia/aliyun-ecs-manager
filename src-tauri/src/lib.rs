@@ -1,9 +1,11 @@
 use specta_typescript::Typescript;
 use tauri::Manager;
 use tauri_plugin_store::StoreBuilder;
-use tauri_specta::collect_commands;
 
-use crate::services::auth::AccessKeyAuthService;
+use crate::{
+    commands::commands_builder,
+    services::{auth::AccessKeyAuthService, client::AliyunClientService},
+};
 
 pub mod commands;
 pub mod init;
@@ -11,21 +13,9 @@ pub mod services;
 pub mod test_utils;
 pub mod types;
 
-// Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-#[tauri::command]
-#[specta::specta]
-fn greet(name: &str) -> String {
-    format!("Hello, {}! You've been greeted from Rust!", name)
-}
-
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let commands_builder = tauri_specta::Builder::<tauri::Wry>::new().commands(collect_commands![
-        greet,
-        commands::auth::current_access_key_credential,
-        commands::auth::validate_access_key_credentials,
-        commands::auth::fulfill_access_key_credentials
-    ]);
+    let commands_builder = commands_builder();
 
     // tracing_subscriber::fmt()
     //     .with_max_level(tracing::Level::DEBUG)
@@ -51,7 +41,19 @@ pub fn run() {
             commands_builder.mount_events(app);
             let builder = StoreBuilder::new(app, "store.json");
             let store = builder.build().expect("Store plugin build failed");
-            app.manage(AccessKeyAuthService::new(store));
+            let auth_service = AccessKeyAuthService::new(store);
+
+            let client_service = AliyunClientService::new();
+            if let Some(client) = auth_service.new_client() {
+                log::info!("Successfully initialized Aliyun client from saved credentials");
+                client_service.initialize(client);
+            } else {
+                log::info!("No valid credentials found, Aliyun client not initialized")
+            }
+
+            app.manage(auth_service);
+            app.manage(client_service);
+
             Result::Ok(())
         })
         .run(tauri::generate_context!())

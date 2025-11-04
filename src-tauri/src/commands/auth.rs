@@ -10,6 +10,7 @@ use crate::services::auth::{
 };
 
 #[derive(thiserror::Error, Debug, Serialize, specta::Type)]
+#[serde(tag = "type", content = "error")]
 pub enum QueryError {
     #[error("internal query error")]
     UnderlyingError(#[from] ServiceQueryError),

@@ -45,27 +45,21 @@ impl AccessKeyAuthService {
             .get_caller_identity()
             .await
             .map_err(|err| match err {
-                // todo: use match if to simplify branches
-                Rejected(aliyun_rejection) => {
+                Rejected(aliyun_rejection) if {
                     let code = &aliyun_rejection.code;
-                    let main_code = code.split_once(".").unwrap_or((&code, "")).0;
+                    let main_code = code.split_once(".").unwrap_or((code, "")).0;
                     log::debug!(
                         "Received aliyun error code: {:#?}, read: {:#?}",
                         code,
                         main_code
                     );
-
-                    if main_code == "InvalidAccessKeyId"
+                    main_code == "InvalidAccessKeyId"
                         || main_code == "SignatureDoesNotMatch"
                         || main_code == "MissingAccessKeyId"
-                    {
-                        AliyunRequestCommandError::<AKNotValid>::new_specific(AKNotValid(
-                            aliyun_rejection,
-                        ))
-                    } else {
-                        OperationError::Rejected(aliyun_rejection).into()
-                    }
-                }
+                } => AliyunRequestCommandError::<AKNotValid>::new_specific(AKNotValid(
+                    aliyun_rejection,
+                )),
+                Rejected(aliyun_rejection) => OperationError::Rejected(aliyun_rejection).into(),
                 other => other.into(),
             })
     }

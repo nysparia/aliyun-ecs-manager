@@ -28,3 +28,6 @@ impl From<SaveCredentialError> for AliyunRequestCommandError<AKNotValid> {
         }
     }
 }
+
+pub type AKValidationError = AliyunRequestCommandError<AKNotValid>;
+pub type AKFulfillError = AliyunRequestCommandError<AKNotValid>;

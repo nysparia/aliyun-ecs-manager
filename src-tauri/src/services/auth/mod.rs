@@ -3,13 +3,16 @@ pub mod store;
 pub mod types;
 
 use alibabacloud::client::{
-    error::AdvancedClientError, sts::caller_identity::CallerIdentityBody, AliyunClient,
+    error::OperationError, sts::caller_identity::CallerIdentityBody, AliyunClient,
 };
 
-use crate::services::auth::{
-    error::{AKFulfillError, AKValidationError},
-    store::{AccessKeyAuthStore, AuthStore, QueryCredentialError},
-    types::AccessKeyCredentials,
+use crate::services::{
+    auth::{
+        error::AKNotValid,
+        store::{AccessKeyAuthStore, AuthStore, QueryCredentialError},
+        types::AccessKeyCredentials,
+    },
+    error::AliyunRequestCommandError,
 };
 
 pub struct AccessKeyAuthService {
@@ -29,36 +32,48 @@ impl AccessKeyAuthService {
         self.auth_store.query()
     }
 
+    pub async fn get_credentials_status(&self) {}
+
     pub async fn validate_access_key_credentials(
         credentials: AccessKeyCredentials,
-    ) -> Result<CallerIdentityBody, AKValidationError> {
+    ) -> Result<CallerIdentityBody, AliyunRequestCommandError<AKNotValid>> {
+        use OperationError::*;
+
         let client = AliyunClient::new(credentials.access_key_id, credentials.access_key_secret);
         client
             .sts()
             .get_caller_identity()
             .await
             .map_err(|err| match err {
-                AdvancedClientError::AliyunRejectError(aliyun_rejection) => {
+                // todo: use match if to simplify branches
+                Rejected(aliyun_rejection) => {
                     let code = &aliyun_rejection.code;
                     let main_code = code.split_once(".").unwrap_or((&code, "")).0;
-                    log::debug!("{:#?} {:#?}", main_code, code);
+                    log::debug!(
+                        "Received aliyun error code: {:#?}, read: {:#?}",
+                        code,
+                        main_code
+                    );
+
                     if main_code == "InvalidAccessKeyId"
                         || main_code == "SignatureDoesNotMatch"
                         || main_code == "MissingAccessKeyId"
                     {
-                        AKValidationError::NotValid(aliyun_rejection)
+                        AliyunRequestCommandError::<AKNotValid>::new_specific(AKNotValid(
+                            aliyun_rejection,
+                        ))
                     } else {
-                        AKValidationError::new_underlying(aliyun_rejection)
+                        OperationError::Rejected(aliyun_rejection).into()
                     }
                 }
-                err => AKValidationError::UnderlyingError(err),
+                other => other.into(),
             })
     }
 
     pub async fn fulfill_access_key_credentials(
         &self,
         credentials: AccessKeyCredentials,
-    ) -> Result<CallerIdentityBody, AKFulfillError> {
+    ) -> Result<CallerIdentityBody, AliyunRequestCommandError<AKNotValid>> {
         let caller_identity = Self::validate_access_key_credentials(credentials.clone()).await?;
         self.auth_store.save(credentials)?;
         Ok(caller_identity)
@@ -145,11 +160,11 @@ mod tests {
             );
             let result = AccessKeyAuthService::validate_access_key_credentials(creds).await;
 
-            let Err(AKValidationError::NotValid(err)) = result else {
+            let Err(AliyunRequestCommandError::Specific(err)) = result else {
                 unreachable!()
             };
 
-            assert_eq!(err.code, expected_code);
+            assert_eq!(err.0.code, expected_code);
         }
 
         // Valid credentials
